@@ -21,10 +21,10 @@ struct Coordenada {
     int x, y;
 };
 
-vector<Coordenada> serpiente;  
-Coordenada comida;  
-bool comida_generada = false;  
-int puntuacion = 0;
+vector<Coordenada> serpiente, serpiente2;
+Coordenada comida;
+bool comida_generada = false;
+int puntuacion = 0, puntuacion2 = 0;
 
 const int WIDTH = 50;
 const int HEIGHT = 25;
@@ -56,21 +56,11 @@ void Bienvenida() {
     cout << "2. Dos Jugadores" << endl;
     cin >> modo_juego;
     
-    switch (modo_juego) {
-        case 1:
-            break;
-        case 2:
-            cout <<" Opcion aun no disponible (Wilson/Mishell)" << endl;
-            system("pause");
-            system("cls");
-            Bienvenida();
-            break;
-        default:
-            cout << "Seleccione una de las dos opciones disponibles." << endl;
-            system("pause");
-            system("cls");
-            Bienvenida();
-            break;
+    if (modo_juego != 1 && modo_juego != 2) {
+        cout << "Seleccione una de las dos opciones disponibles." << endl;
+        system("pause");
+        system("cls");
+        Bienvenida();
     }
     
     system("cls");
@@ -98,7 +88,6 @@ void gotoxy(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
-
 void GameOver() {
     system("cls");
     cout << "   ____      _      __  __  U _____ u       U  ___ u__     __ U _____ u   ____     \n";
@@ -110,33 +99,36 @@ void GameOver() {
     cout << " (__)__) (__)  (__)(./  \\.) (__) (__)         (__)   (__)     (__) (__) (__)  (__) \n";
 }
 
-void Dibuja_Serpiente() {
-    for (size_t i = 0; i < serpiente.size(); i++) {
-        gotoxy(serpiente[i].x, serpiente[i].y);
+void Dibuja_Serpiente(const vector<Coordenada>& serp, char cabeza, char cuerpo) {
+    for (size_t i = 0; i < serp.size(); i++) {
+        gotoxy(serp[i].x, serp[i].y);
         if (i == 0) {
-            cout << "O";  
+            cout << cabeza;
         } else {
-            cout << "o";  
+            cout << cuerpo;
         }
     }
 }
 
 void MostrarPuntuacion() {
     gotoxy(0, HEIGHT);
-    cout << "Puntaje: " << puntuacion << endl;  
+    cout << "Puntaje Jugador 1: " << puntuacion << " | Puntaje Jugador 2: " << puntuacion2 << endl;
 }
 
-void Movimiento_Snake() {
+void Movimiento_Snake(vector<Coordenada>& serp, char tecla_arriba, char tecla_abajo, char tecla_izquierda, char tecla_derecha, int& puntaje) {
     char tecla;
 
     Coordenada inicio = { WIDTH / 2, HEIGHT / 2 };
-    serpiente.push_back(inicio);
+    serp.push_back(inicio);
 
     while (true) {
         mtx.lock();
         system("cls");
         Limites();
-        Dibuja_Serpiente();
+        Dibuja_Serpiente(serpiente, 'O', 'o');
+        if (modo_juego == 2) {
+            Dibuja_Serpiente(serpiente2, 'X', 'x');
+        }
         gotoxy(comida.x, comida.y);
         cout << "@";  
         MostrarPuntuacion();
@@ -144,14 +136,20 @@ void Movimiento_Snake() {
 
         if (_kbhit()) {
             tecla = _getch();
+            
+            // Manejar teclas especiales como las flechas
+            if (tecla == 0 || tecla == 224) {  
+                tecla = _getch();  // Obtén el verdadero código de la tecla
+            }
+
             mtx.lock();
 
-            Coordenada nueva_pos = serpiente[0];
+            Coordenada nueva_pos = serp[0];
 
-            if (tecla == 'w') nueva_pos.y--;
-            else if (tecla == 's') nueva_pos.y++;
-            else if (tecla == 'a') nueva_pos.x--;
-            else if (tecla == 'd') nueva_pos.x++;
+            if (tecla == tecla_arriba) nueva_pos.y--;
+            else if (tecla == tecla_abajo) nueva_pos.y++;
+            else if (tecla == tecla_izquierda) nueva_pos.x--;
+            else if (tecla == tecla_derecha) nueva_pos.x++;
 
             if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
                 GameOver();
@@ -159,23 +157,23 @@ void Movimiento_Snake() {
             }
 
             if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
-                serpiente.push_back(serpiente.back());  
-                puntuacion += 10;  
+                serp.push_back(serp.back());  
+                puntaje += 10;  
                 comida_generada = false;  
             }
 
-            for (size_t i = 1; i < serpiente.size(); i++) {
-                if (nueva_pos.x == serpiente[i].x && nueva_pos.y == serpiente[i].y) {
+            for (size_t i = 1; i < serp.size(); i++) {
+                if (nueva_pos.x == serp[i].x && nueva_pos.y == serp[i].y) {
                     GameOver();
                     return;
                 }
             }
 
-            for (size_t i = serpiente.size() - 1; i > 0; i--) {
-                serpiente[i] = serpiente[i - 1];
+            for (size_t i = serp.size() - 1; i > 0; i--) {
+                serp[i] = serp[i - 1];
             }
 
-            serpiente[0] = nueva_pos;
+            serp[0] = nueva_pos;
             mtx.unlock();
         }
 
@@ -204,11 +202,20 @@ int main() {
     thread limites(Limites);
     limites.join();
 
-    thread comida_thread(Comida, nullptr); 
-    thread snake(Movimiento_Snake);
+    thread comida_thread(Comida, nullptr);
+
+    thread snake1(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion));
+    thread snake2;
+
+    if (modo_juego == 2) {
+        snake2 = thread(Movimiento_Snake, ref(serpiente2), VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, ref(puntuacion2));
+    }
 
     comida_thread.join();
-    snake.join();
+    snake1.join();
+    if (snake2.joinable()) {
+        snake2.join();
+    }
 
     return 0;
 }
