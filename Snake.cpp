@@ -98,9 +98,6 @@ void gotoxy(int x, int y) {
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
-void LimpiarPantalla() {
-    system("cls");  
-}
 
 void GameOver() {
     system("cls");
@@ -137,11 +134,11 @@ void Movimiento_Snake() {
 
     while (true) {
         mtx.lock();
-        LimpiarPantalla();
+        system("cls");
         Limites();
         Dibuja_Serpiente();
         gotoxy(comida.x, comida.y);
-        cout << "@";  // Comida
+        cout << "@";  
         MostrarPuntuacion();
         mtx.unlock();
 
