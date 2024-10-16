@@ -115,8 +115,8 @@ void MostrarPuntuacion() {
     cout << "Puntaje Jugador 1: " << puntuacion << " | Puntaje Jugador 2: " << puntuacion2 << endl;
 }
 
-void Movimiento_Snake(vector<Coordenada>& serp, char tecla_arriba, char tecla_abajo, char tecla_izquierda, char tecla_derecha, int& puntaje) {
-    char tecla;
+void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abajo, int tecla_izquierda, int tecla_derecha, int& puntaje, bool is_arrow_keys = false) {
+    int tecla;
 
     Coordenada inicio = { WIDTH / 2, HEIGHT / 2 };
     serp.push_back(inicio);
@@ -136,32 +136,36 @@ void Movimiento_Snake(vector<Coordenada>& serp, char tecla_arriba, char tecla_ab
 
         if (_kbhit()) {
             tecla = _getch();
-            
-            // Manejar teclas especiales como las flechas
-            if (tecla == 0 || tecla == 224) {  
-                tecla = _getch();  // Obtén el verdadero código de la tecla
+
+            // For arrow keys, _getch() returns two values: first 0 or 224, then the actual keycode.
+            if (tecla == 0 || tecla == 224) {
+                tecla = _getch();  // Read the second part of the key for arrow keys
             }
 
             mtx.lock();
 
             Coordenada nueva_pos = serp[0];
 
+            // Now use the correct VK_ constants for arrow keys
             if (tecla == tecla_arriba) nueva_pos.y--;
             else if (tecla == tecla_abajo) nueva_pos.y++;
             else if (tecla == tecla_izquierda) nueva_pos.x--;
             else if (tecla == tecla_derecha) nueva_pos.x++;
 
+            // Check for boundary collisions
             if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
                 GameOver();
                 break;
             }
 
+            // Check for food collision
             if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
                 serp.push_back(serp.back());  
                 puntaje += 10;  
                 comida_generada = false;  
             }
 
+            // Check for self-collision
             for (size_t i = 1; i < serp.size(); i++) {
                 if (nueva_pos.x == serp[i].x && nueva_pos.y == serp[i].y) {
                     GameOver();
@@ -169,6 +173,7 @@ void Movimiento_Snake(vector<Coordenada>& serp, char tecla_arriba, char tecla_ab
                 }
             }
 
+            // Move the snake
             for (size_t i = serp.size() - 1; i > 0; i--) {
                 serp[i] = serp[i - 1];
             }
@@ -177,7 +182,7 @@ void Movimiento_Snake(vector<Coordenada>& serp, char tecla_arriba, char tecla_ab
             mtx.unlock();
         }
 
-        Sleep(100);  
+        Sleep(100);  // Delay between movements
     }
 }
 
@@ -204,12 +209,14 @@ int main() {
 
     thread comida_thread(Comida, nullptr);
 
-    thread snake1(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion));
+    thread snake1(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion), false);
     thread snake2;
 
     if (modo_juego == 2) {
-        snake2 = thread(Movimiento_Snake, ref(serpiente2), VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, ref(puntuacion2));
+        snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);
     }
+
+
 
     comida_thread.join();
     snake1.join();
