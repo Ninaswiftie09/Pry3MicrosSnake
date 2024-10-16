@@ -137,35 +137,30 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
         if (_kbhit()) {
             tecla = _getch();
 
-            // For arrow keys, _getch() returns two values: first 0 or 224, then the actual keycode.
             if (tecla == 0 || tecla == 224) {
-                tecla = _getch();  // Read the second part of the key for arrow keys
+                tecla = _getch();
             }
 
             mtx.lock();
 
             Coordenada nueva_pos = serp[0];
 
-            // Now use the correct VK_ constants for arrow keys
             if (tecla == tecla_arriba) nueva_pos.y--;
             else if (tecla == tecla_abajo) nueva_pos.y++;
             else if (tecla == tecla_izquierda) nueva_pos.x--;
             else if (tecla == tecla_derecha) nueva_pos.x++;
 
-            // Check for boundary collisions
             if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
                 GameOver();
                 break;
             }
 
-            // Check for food collision
             if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
                 serp.push_back(serp.back());  
                 puntaje += 10;  
                 comida_generada = false;  
             }
 
-            // Check for self-collision
             for (size_t i = 1; i < serp.size(); i++) {
                 if (nueva_pos.x == serp[i].x && nueva_pos.y == serp[i].y) {
                     GameOver();
@@ -173,7 +168,6 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
                 }
             }
 
-            // Move the snake
             for (size_t i = serp.size() - 1; i > 0; i--) {
                 serp[i] = serp[i - 1];
             }
@@ -182,7 +176,7 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
             mtx.unlock();
         }
 
-        Sleep(100);  // Delay between movements
+        Sleep(100);  
     }
 }
 
@@ -216,8 +210,6 @@ int main() {
         snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);
     }
 
-
-
     comida_thread.join();
     snake1.join();
     if (snake2.joinable()) {
@@ -226,3 +218,4 @@ int main() {
 
     return 0;
 }
+// Comment ça va ? Bof. Simplement bof
