@@ -157,7 +157,7 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
 
             if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
                 serp.push_back(serp.back());  
-                puntaje += 10;  
+                puntaje += 7;  
                 comida_generada = false;  
             }
 
@@ -195,6 +195,20 @@ void* Comida(void*) {
     }
 }
 
+void* Temporizador(void*) {
+    int tiempo_total = 60;  
+    while (tiempo_total > 0) {
+        Sleep(1000);  
+        mtx.lock();
+        gotoxy(WIDTH + 5, 0);  
+        cout << "Tiempo restante: " << tiempo_total << " segundos";
+        tiempo_total--;
+        mtx.unlock();
+    }
+    GameOver();
+    return nullptr;
+}
+
 int main() {
     Bienvenida();
 
@@ -202,20 +216,22 @@ int main() {
     limites.join();
 
     thread comida_thread(Comida, nullptr);
+    thread temporizador(Temporizador, nullptr);  
 
     thread snake1(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion), false);
     thread snake2;
 
     if (modo_juego == 2) {
-        snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);
+        snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);  
     }
 
-    comida_thread.join();
     snake1.join();
-    if (snake2.joinable()) {
+    if (modo_juego == 2) {
         snake2.join();
     }
 
+    comida_thread.join();
+    temporizador.join();
+
     return 0;
 }
-// Comment ça va ? Bof. Simplement bof
