@@ -14,8 +14,8 @@
 
 using namespace std;
 
-int modo_juego;  
-mutex mtx;  
+int modo_juego;
+mutex mtx;
 
 struct Coordenada {
     int x, y;
@@ -29,28 +29,17 @@ int puntuacion = 0, puntuacion2 = 0;
 const int WIDTH = 50;
 const int HEIGHT = 25;
 
+// Definición de direcciones
+const int ARRIBA = 0;
+const int ABAJO = 1;
+const int IZQUIERDA = 2;
+const int DERECHA = 3;
+const int SIN_MOVIMIENTO = -1;  // Estado inicial sin movimiento
+
 void Bienvenida() {
     cout << "------------------------------------------------" << endl;
     cout << "              WELCOME TO SNAKE GAME             " << endl;
     cout << "------------------------------------------------" << endl;
-    cout << "           /\\/\\/\\                              " << endl;
-    cout << "         _|__|  O|                             " << endl;
-    cout << "/~     /~     \\_/ \\                           " << endl;
-    cout << " \\____|__________/  \\                          " << endl;
-    cout << "        \\_______      \\                        " << endl;
-    cout << "                \\     \\                 \\     " << endl;
-    cout << "                  |     |                  \\   " << endl;
-    cout << "                 /      /                    \\ " << endl;
-    cout << "                /     /                       \\" << endl;
-    cout << "              /      /                         \\" << endl;
-    cout << "             /     /                            \\" << endl;
-    cout << "           /     /             _----_            " << endl;
-    cout << "          /     /           _-~      ~-_         " << endl;
-    cout << "         (      (        _-~    _--_    ~-_     _/" << endl;
-    cout << "          \\      ~-____-~    _-~    ~-_    ~-_-~ " << endl;
-    cout << "            ~-_           _-~          ~-_       " << endl;
-    cout << "               ~--______-~                ~-___-~" << endl;
-    cout << "-------------------------------------------------" << endl;
     cout << "Seleccione su modo de juego" << endl;
     cout << "1. Un Jugador" << endl;
     cout << "2. Dos Jugadores" << endl;
@@ -116,8 +105,7 @@ void MostrarPuntuacion() {
 }
 
 void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abajo, int tecla_izquierda, int tecla_derecha, int& puntaje, bool is_arrow_keys = false) {
-    int tecla;
-
+    int direccion = SIN_MOVIMIENTO;  // Inicialmente sin movimiento
     Coordenada inicio = { WIDTH / 2, HEIGHT / 2 };
     serp.push_back(inicio);
 
@@ -135,48 +123,84 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
         mtx.unlock();
 
         if (_kbhit()) {
-            tecla = _getch();
+            int tecla = _getch();
 
             if (tecla == 0 || tecla == 224) {
-                tecla = _getch();
+                tecla = _getch();  // Leer tecla de dirección o especial
             }
 
             mtx.lock();
 
-            Coordenada nueva_pos = serp[0];
-
-            if (tecla == tecla_arriba) nueva_pos.y--;
-            else if (tecla == tecla_abajo) nueva_pos.y++;
-            else if (tecla == tecla_izquierda) nueva_pos.x--;
-            else if (tecla == tecla_derecha) nueva_pos.x++;
-
-            if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
-                GameOver();
-                break;
+            // Cambiar la dirección dependiendo la flecha que se presione
+            if (tecla == tecla_arriba && direccion != ABAJO) {
+                direccion = ARRIBA;
+            } else if (tecla == tecla_abajo && direccion != ARRIBA) {
+                direccion = ABAJO;
+            } else if (tecla == tecla_izquierda && direccion != DERECHA) {
+                direccion = IZQUIERDA;
+            } else if (tecla == tecla_derecha && direccion != IZQUIERDA) {
+                direccion = DERECHA;
             }
 
-            if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
-                serp.push_back(serp.back());  
-                puntaje += 7;  
-                comida_generada = false;  
-            }
-
-            for (size_t i = 1; i < serp.size(); i++) {
-                if (nueva_pos.x == serp[i].x && nueva_pos.y == serp[i].y) {
-                    GameOver();
-                    return;
-                }
-            }
-
-            for (size_t i = serp.size() - 1; i > 0; i--) {
-                serp[i] = serp[i - 1];
-            }
-
-            serp[0] = nueva_pos;
             mtx.unlock();
         }
 
-        Sleep(100);  
+        // Si la dirección es SIN_MOVIMIENTO, no se mueve la serpiente 
+        if (direccion == SIN_MOVIMIENTO) {
+            Sleep(100);  // Pausar el ciclo 
+            continue;
+        }
+
+        mtx.lock();
+
+        // Mover la serpiente en la dirección actual
+        Coordenada nueva_pos = serp[0];
+
+        switch (direccion) {
+            case ARRIBA:
+                nueva_pos.y--;
+                break;
+            case ABAJO:
+                nueva_pos.y++;
+                break;
+            case IZQUIERDA:
+                nueva_pos.x--;
+                break;
+            case DERECHA:
+                nueva_pos.x++;
+                break;
+        }
+
+        // Chequear colisión con los bordes
+        if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
+            GameOver();
+            break;
+        }
+
+        // Chequear si come comida
+        if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
+            serp.push_back(serp.back());  // Crece la serpiente
+            puntaje += 7;  
+            comida_generada = false;  
+        }
+
+        // Chequear colisión con su propio cuerpo
+        for (size_t i = 1; i < serp.size(); i++) {
+            if (nueva_pos.x == serp[i].x && nueva_pos.y == serp[i].y) {
+                GameOver();
+                return;
+            }
+        }
+
+        // Mover el cuerpo de la serpiente
+        for (size_t i = serp.size() - 1; i > 0; i--) {
+            serp[i] = serp[i - 1];
+        }
+
+        serp[0] = nueva_pos;
+        mtx.unlock();
+
+        Sleep(100);  // Velocidad de la serpiente
     }
 }
 
@@ -184,23 +208,23 @@ void* Comida(void*) {
     srand(time(0));
 
     while (true) {
-        if (!comida_generada) {  
+        if (!comida_generada) {
             mtx.lock();
             comida.x = rand() % (WIDTH - 2) + 1;
             comida.y = rand() % (HEIGHT - 2) + 1;
-            comida_generada = true;  
+            comida_generada = true;
             mtx.unlock();
         }
-        Sleep(5000);  
+        Sleep(5000);
     }
 }
 
 void* Temporizador(void*) {
-    int tiempo_total = 60;  
+    int tiempo_total = 60;
     while (tiempo_total > 0) {
-        Sleep(1000);  
+        Sleep(1000);
         mtx.lock();
-        gotoxy(WIDTH + 5, 0);  
+        gotoxy(WIDTH + 5, 0);
         cout << "Tiempo restante: " << tiempo_total << " segundos";
         tiempo_total--;
         mtx.unlock();
@@ -216,13 +240,13 @@ int main() {
     limites.join();
 
     thread comida_thread(Comida, nullptr);
-    thread temporizador(Temporizador, nullptr);  
+    thread temporizador(Temporizador, nullptr);
 
     thread snake1(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion), false);
     thread snake2;
 
     if (modo_juego == 2) {
-        snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);  
+        snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);
     }
 
     snake1.join();
