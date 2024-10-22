@@ -15,6 +15,8 @@
 using namespace std;
 
 int modo_juego;
+int nivel = 1;  // Nivel de dificultad inicial
+int velocidad = 100;  // Tiempo de espera en ms (velocidad inicial)
 mutex mtx;
 
 struct Coordenada {
@@ -29,17 +31,34 @@ int puntuacion = 0, puntuacion2 = 0;
 const int WIDTH = 50;
 const int HEIGHT = 25;
 
-// Definición de direcciones
 const int ARRIBA = 0;
 const int ABAJO = 1;
 const int IZQUIERDA = 2;
 const int DERECHA = 3;
-const int SIN_MOVIMIENTO = -1;  // Estado inicial sin movimiento
+const int SIN_MOVIMIENTO = -1;
 
 void Bienvenida() {
     cout << "------------------------------------------------" << endl;
     cout << "              WELCOME TO SNAKE GAME             " << endl;
     cout << "------------------------------------------------" << endl;
+      cout << "           /\\/\\/\\                              " << endl;
+    cout << "         _|__|  O|                             " << endl;
+    cout << "/~     /~     \\_/ \\                           " << endl;
+    cout << " \\____|__________/  \\                          " << endl;
+    cout << "        \\_______      \\                        " << endl;
+    cout << "                \\     \\                 \\     " << endl;
+    cout << "                  |     |                  \\   " << endl;
+    cout << "                 /      /                    \\ " << endl;
+    cout << "                /     /                       \\" << endl;
+    cout << "              /      /                         \\" << endl;
+    cout << "             /     /                            \\" << endl;
+    cout << "           /     /             _----_            " << endl;
+    cout << "          /     /           _-~      ~-_         " << endl;
+    cout << "         (      (        _-~    _--_    ~-_     _/" << endl;
+    cout << "          \\      ~-____-~    _-~    ~-_    ~-_-~ " << endl;
+    cout << "            ~-_           _-~          ~-_       " << endl;
+    cout << "               ~--______-~                ~-___-~" << endl;
+    cout << "-------------------------------------------------" << endl;
     cout << "Seleccione su modo de juego" << endl;
     cout << "1. Un Jugador" << endl;
     cout << "2. Dos Jugadores" << endl;
@@ -102,10 +121,12 @@ void Dibuja_Serpiente(const vector<Coordenada>& serp, char cabeza, char cuerpo) 
 void MostrarPuntuacion() {
     gotoxy(0, HEIGHT);
     cout << "Puntaje Jugador 1: " << puntuacion << " | Puntaje Jugador 2: " << puntuacion2 << endl;
+    gotoxy(0, HEIGHT + 1);
+    cout << "Nivel: " << nivel << " | Velocidad: " << velocidad << " ms" << endl;
 }
 
 void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abajo, int tecla_izquierda, int tecla_derecha, int& puntaje, bool is_arrow_keys = false) {
-    int direccion = SIN_MOVIMIENTO;  // Inicialmente sin movimiento
+    int direccion = SIN_MOVIMIENTO;
     Coordenada inicio = { WIDTH / 2, HEIGHT / 2 };
     serp.push_back(inicio);
 
@@ -126,12 +147,10 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
             int tecla = _getch();
 
             if (tecla == 0 || tecla == 224) {
-                tecla = _getch();  // Leer tecla de dirección o especial
+                tecla = _getch();
             }
 
             mtx.lock();
-
-            // Cambiar la dirección dependiendo la flecha que se presione
             if (tecla == tecla_arriba && direccion != ABAJO) {
                 direccion = ARRIBA;
             } else if (tecla == tecla_abajo && direccion != ARRIBA) {
@@ -141,19 +160,15 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
             } else if (tecla == tecla_derecha && direccion != IZQUIERDA) {
                 direccion = DERECHA;
             }
-
             mtx.unlock();
         }
 
-        // Si la dirección es SIN_MOVIMIENTO, no se mueve la serpiente 
         if (direccion == SIN_MOVIMIENTO) {
-            Sleep(100);  // Pausar el ciclo 
+            Sleep(100);
             continue;
         }
 
         mtx.lock();
-
-        // Mover la serpiente en la dirección actual
         Coordenada nueva_pos = serp[0];
 
         switch (direccion) {
@@ -171,20 +186,17 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
                 break;
         }
 
-        // Chequear colisión con los bordes
         if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
             GameOver();
             break;
         }
 
-        // Chequear si come comida
         if (nueva_pos.x == comida.x && nueva_pos.y == comida.y) {
-            serp.push_back(serp.back());  // Crece la serpiente
-            puntaje += 7;  
-            comida_generada = false;  
+            serp.push_back(serp.back());
+            puntaje += 7;
+            comida_generada = false;
         }
 
-        // Chequear colisión con su propio cuerpo
         for (size_t i = 1; i < serp.size(); i++) {
             if (nueva_pos.x == serp[i].x && nueva_pos.y == serp[i].y) {
                 GameOver();
@@ -192,7 +204,6 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
             }
         }
 
-        // Mover el cuerpo de la serpiente
         for (size_t i = serp.size() - 1; i > 0; i--) {
             serp[i] = serp[i - 1];
         }
@@ -200,7 +211,7 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
         serp[0] = nueva_pos;
         mtx.unlock();
 
-        Sleep(100);  // Velocidad de la serpiente
+        Sleep(velocidad);
     }
 }
 
@@ -214,22 +225,39 @@ void* Comida(void*) {
             comida.y = rand() % (HEIGHT - 2) + 1;
             comida_generada = true;
             mtx.unlock();
+            mtx.unlock();
         }
-        Sleep(5000);
+        Sleep(5000);  // Generar nueva comida cada 5 segundos si no hay comida
     }
 }
 
 void* Temporizador(void*) {
-    int tiempo_total = 60;
-    while (tiempo_total > 0) {
-        Sleep(1000);
+    int tiempo_total = 60;  // Tiempo por nivel en segundos
+    while (true) {
+        while (tiempo_total > 0) {
+            Sleep(1000);  // 1 segundo
+            mtx.lock();
+            gotoxy(WIDTH + 5, 0);  
+            cout << "Tiempo restante: " << tiempo_total << " segundos";
+            tiempo_total--;
+            mtx.unlock();
+        }
+
+        // Cuando el temporizador llega a 0, incrementar nivel y aumentar velocidad
+        nivel++;
+        if (velocidad > 20) {  // Límite inferior de velocidad
+            velocidad -= 10;  // Aumenta la velocidad (reduce el delay entre movimientos)
+        }
+
         mtx.lock();
-        gotoxy(WIDTH + 5, 0);
-        cout << "Tiempo restante: " << tiempo_total << " segundos";
-        tiempo_total--;
+        system("cls");
+        gotoxy(WIDTH / 2 - 5, HEIGHT / 2);
+        cout << "Nivel " << nivel << "! La velocidad aumenta!";
+        Sleep(2000);  // Pausa para mostrar el mensaje
         mtx.unlock();
+
+        tiempo_total = 60;  // Reiniciar temporizador para el siguiente nivel
     }
-    GameOver();
     return nullptr;
 }
 
