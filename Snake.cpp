@@ -16,7 +16,7 @@ using namespace std;
 
 int modo_juego;
 int nivel = 1;  // Nivel de dificultad inicial
-int velocidad = 100;  // Tiempo de espera en ms (velocidad inicial)
+int velocidad = 100;  // velocidad inicial
 mutex mtx;
 
 struct Coordenada {
@@ -25,6 +25,7 @@ struct Coordenada {
 
 vector<Coordenada> serpiente, serpiente2;
 Coordenada comida;
+vector<Coordenada> trampas;  // Vector para almacenar las posiciones de las trampas
 bool comida_generada = false;
 int puntuacion = 0, puntuacion2 = 0;
 
@@ -37,11 +38,18 @@ const int IZQUIERDA = 2;
 const int DERECHA = 3;
 const int SIN_MOVIMIENTO = -1;
 
+void gotoxy(int x, int y) {
+    COORD coord;
+    coord.X = x;
+    coord.Y = y;
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+}
+
 void Bienvenida() {
     cout << "------------------------------------------------" << endl;
     cout << "              WELCOME TO SNAKE GAME             " << endl;
     cout << "------------------------------------------------" << endl;
-      cout << "           /\\/\\/\\                              " << endl;
+    cout << "           /\\/\\/\\                              " << endl;
     cout << "         _|__|  O|                             " << endl;
     cout << "/~     /~     \\_/ \\                           " << endl;
     cout << " \\____|__________/  \\                          " << endl;
@@ -63,48 +71,41 @@ void Bienvenida() {
     cout << "1. Un Jugador" << endl;
     cout << "2. Dos Jugadores" << endl;
     cin >> modo_juego;
-    
+
     if (modo_juego != 1 && modo_juego != 2) {
         cout << "Seleccione una de las dos opciones disponibles." << endl;
         system("pause");
         system("cls");
         Bienvenida();
     }
-    
+
     system("cls");
 }
 
 void Limites() {
+    // Dibuja los límites una sola vez para que la pantalla no parpadee
     for (int i = 0; i < HEIGHT; i++) {
         for (int j = 0; j < WIDTH; j++) {
+            gotoxy(j, i);
             if (i == 0 || i == HEIGHT - 1) {
                 cout << "-";
             } else if (j == 0 || j == WIDTH - 1) {
                 cout << "|";
-            } else {
-                cout << " ";
             }
         }
-        cout << endl;
     }
-}
-
-void gotoxy(int x, int y) {
-    COORD coord;
-    coord.X = x;
-    coord.Y = y;
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
 }
 
 void GameOver() {
     system("cls");
-    cout << "   ____      _      __  __  U _____ u       U  ___ u__     __ U _____ u   ____     \n";
+     cout << "   ____      _      __  __  U _____ u       U  ___ u__     __ U _____ u   ____     \n";
     cout << "U /\"___|uU  /\"\\  uU|' \\/ '|u\\| ___\"|/        \\/\"_ \\/\\ \\   /\"/u\\| ___\"|/U |  _\"\\ u  \n";
     cout << "\\| |  _ / \\/ _ \\/ \\| |\\/| |/ |  _|\"          | | | | \\ \\ / //  |  _|\"   \\| |_) |/  \n";
     cout << " | |_| |  / ___ \\  | |  | |  | |___      .-,_| |_| | /\\ V /_,-.| |___    |  _ <    \n";
     cout << "  \\____| /_/   \\_\\ |_|  |_|  |_____|      \\_)-\\___/ U  \\_/-(_/ |_____|   |_| \\_\\   \n";
     cout << "  _)(|_   \\\\    >><<,-,,-.   <<   >>           \\\\     //       <<   >>   //   \\\\_  \n";
     cout << " (__)__) (__)  (__)(./  \\.) (__) (__)         (__)   (__)     (__) (__) (__)  (__) \n";
+    cout << "!" << endl;
 }
 
 void Dibuja_Serpiente(const vector<Coordenada>& serp, char cabeza, char cuerpo) {
@@ -125,24 +126,45 @@ void MostrarPuntuacion() {
     cout << "Nivel: " << nivel << " | Velocidad: " << velocidad << " ms" << endl;
 }
 
+void Dibuja_Trampas() {
+    for (const auto& trampa : trampas) {
+        gotoxy(trampa.x, trampa.y);
+        cout << "X";  // Símbolo de las trampas
+    }
+}
+
+void Borrar_Trampas() {
+    for (const auto& trampa : trampas) {
+        gotoxy(trampa.x, trampa.y);
+        cout << " ";  // Borrar la trampa 
+    }
+}
+
+void GenerarTrampas(int cantidad) {
+    trampas.clear();  // Limpiar trampas anteriores
+    for (int i = 0; i < cantidad; i++) {
+        Coordenada nueva_trampa;
+        nueva_trampa.x = rand() % (WIDTH - 2) + 1;
+        nueva_trampa.y = rand() % (HEIGHT - 2) + 1;
+        trampas.push_back(nueva_trampa);
+    }
+}
+
+bool ColisionaConTrampa(const Coordenada& posicion) {
+    for (const auto& trampa : trampas) {
+        if (posicion.x == trampa.x && posicion.y == trampa.y) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abajo, int tecla_izquierda, int tecla_derecha, int& puntaje, bool is_arrow_keys = false) {
     int direccion = SIN_MOVIMIENTO;
     Coordenada inicio = { WIDTH / 2, HEIGHT / 2 };
     serp.push_back(inicio);
 
     while (true) {
-        mtx.lock();
-        system("cls");
-        Limites();
-        Dibuja_Serpiente(serpiente, 'O', 'o');
-        if (modo_juego == 2) {
-            Dibuja_Serpiente(serpiente2, 'X', 'x');
-        }
-        gotoxy(comida.x, comida.y);
-        cout << "@";  
-        MostrarPuntuacion();
-        mtx.unlock();
-
         if (_kbhit()) {
             int tecla = _getch();
 
@@ -186,7 +208,8 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
                 break;
         }
 
-        if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1) {
+        // para verificaar colisión con los límites
+        if (nueva_pos.x == 0 || nueva_pos.x == WIDTH - 1 || nueva_pos.y == 0 || nueva_pos.y == HEIGHT - 1 || ColisionaConTrampa(nueva_pos)) {
             GameOver();
             break;
         }
@@ -204,11 +227,31 @@ void Movimiento_Snake(vector<Coordenada>& serp, int tecla_arriba, int tecla_abaj
             }
         }
 
+        // se borra la ultima  parte de la serpiente
+        gotoxy(serp.back().x, serp.back().y);
+        cout << " ";
+
         for (size_t i = serp.size() - 1; i > 0; i--) {
             serp[i] = serp[i - 1];
         }
 
         serp[0] = nueva_pos;
+
+        // Dibujar la nueva posición de la serpiente
+        gotoxy(serp[0].x, serp[0].y);
+        cout << "O";  // Dibujar cabeza
+        for (size_t i = 1; i < serp.size(); i++) {
+            gotoxy(serp[i].x, serp[i].y);
+            cout << "o";  // Dibujar cuerpo
+        }
+
+        if (comida_generada) {
+            gotoxy(comida.x, comida.y);
+            cout << "@";
+        }
+
+        MostrarPuntuacion();
+        Dibuja_Trampas();
         mtx.unlock();
 
         Sleep(velocidad);
@@ -225,9 +268,8 @@ void* Comida(void*) {
             comida.y = rand() % (HEIGHT - 2) + 1;
             comida_generada = true;
             mtx.unlock();
-            mtx.unlock();
         }
-        Sleep(5000);  // Generar nueva comida cada 5 segundos si no hay comida
+        Sleep(5000);
     }
 }
 
@@ -235,55 +277,65 @@ void* Temporizador(void*) {
     int tiempo_total = 60;  // Tiempo por nivel en segundos
     while (true) {
         while (tiempo_total > 0) {
-            Sleep(1000);  // 1 segundo
+            Sleep(1000);
             mtx.lock();
-            gotoxy(WIDTH + 5, 0);  
-            cout << "Tiempo restante: " << tiempo_total << " segundos";
+            gotoxy(WIDTH + 5, 0);
+            cout << "Tiempo restante: " << tiempo_total;
             tiempo_total--;
             mtx.unlock();
         }
 
-        // Cuando el temporizador llega a 0, incrementar nivel y aumentar velocidad
+        // Aumentar el nivel cada vez que se agota el tiempo
         nivel++;
-        if (velocidad > 20) {  // Límite inferior de velocidad
-            velocidad -= 10;  // Aumenta la velocidad (reduce el delay entre movimientos)
+        velocidad -= 10;  // Aumentar velocidad
+        tiempo_total = 60;  // Reiniciar tiempo
+
+        // Generar trampas a partir del nivel 3
+        if (nivel >= 2) {
+            int cantidad_trampas = nivel - 2;  // Aumentar la cantidad de trampas con el nivel
+            GenerarTrampas(cantidad_trampas);
         }
-
-        mtx.lock();
-        system("cls");
-        gotoxy(WIDTH / 2 - 5, HEIGHT / 2);
-        cout << "Nivel " << nivel << "! La velocidad aumenta!";
-        Sleep(2000);  // Pausa para mostrar el mensaje
-        mtx.unlock();
-
-        tiempo_total = 60;  // Reiniciar temporizador para el siguiente nivel
     }
-    return nullptr;
+}
+
+// Función para regenerar trampas cada 3 segundos
+void* RegenerarTrampas(void*) {
+    while (true) {
+        Sleep(3000);  // Espera 3 segundos
+        mtx.lock();
+        Borrar_Trampas();  // Borrar trampas actuales
+        GenerarTrampas(nivel - 2);  // Generar nuevas trampas según el nivel
+        mtx.unlock();
+    }
 }
 
 int main() {
     Bienvenida();
-
-    thread limites(Limites);
-    limites.join();
+    Limites();
 
     thread comida_thread(Comida, nullptr);
-    thread temporizador(Temporizador, nullptr);
+    thread temporizador_thread(Temporizador, nullptr);
+    thread trampas_thread(RegenerarTrampas, nullptr);  // Hilo para regenerar trampas
 
-    thread snake1(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion), false);
+ 
+    thread snake1;
     thread snake2;
 
-    if (modo_juego == 2) {
+    if (modo_juego == 1) {
+        snake1 = thread(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion), false);
+    } else if (modo_juego == 2) {
+        snake1 = thread(Movimiento_Snake, ref(serpiente), 'w', 's', 'a', 'd', ref(puntuacion), false);
         snake2 = thread(Movimiento_Snake, ref(serpiente2), 72, 80, 75, 77, ref(puntuacion2), true);
     }
 
-    snake1.join();
-    if (modo_juego == 2) {
+    if (snake1.joinable()) {
+        snake1.join();
+    }
+    if (snake2.joinable()) {
         snake2.join();
     }
-
     comida_thread.join();
-    temporizador.join();
-
+    temporizador_thread.join();
+    trampas_thread.join();
     return 0;
 }
